@@ -1,5 +1,6 @@
 package ren.yale.java;
 
+import io.vertx.core.Vertx;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import ren.yale.java.annotation.Blocking;
@@ -30,13 +31,15 @@ class MethodsProcessor {
     private MethodsProcessor() {
     }
 
-    private static Object newClass(Class clazz){
+    private static Object newClass(Class clazz, Vertx vertx){
 
         try {
             for (Constructor<?> c : clazz.getDeclaredConstructors()) {
                 c.setAccessible(true);
                 if (c.getParameterCount() == 0) {
                     return c.newInstance();
+                } else if (c.getParameterCount() == 1 && c.getParameters()[0].getType().equals(Vertx.class)) {
+                    return c.newInstance(vertx);
                 }
             }
         }catch (Exception e){
@@ -99,18 +102,18 @@ class MethodsProcessor {
         }
         return null;
     }
-    public static void get(List<ClassInfo> classInfos, Class clazz) {
+    public static ClassInfo get(Class clazz, Vertx vertx) {
 
 
         Path path = (Path) clazz.getAnnotation(Path.class);
 
         if (path==null||path.value()==null){
-            return;
+            return null;
         }
 
         ClassInfo classInfo = new ClassInfo();
         classInfo.setClassPath(path.value());
-        classInfo.setClazzObj(newClass(clazz));
+        classInfo.setClazzObj(newClass(clazz, vertx));
         classInfo.setClazz(clazz);
 
         Interceptor[] interceptorsClazz =
@@ -198,7 +201,7 @@ class MethodsProcessor {
             classInfo.addMethodInfo(methodInfo);
 
         }
-        classInfos.add(classInfo);
+        return classInfo;
     }
     private static boolean isRestClass(Class cls) {
 

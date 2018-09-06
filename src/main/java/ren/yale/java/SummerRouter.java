@@ -88,8 +88,9 @@ public class SummerRouter {
         if (isRegister(clazz)){
             return;
         }
-        MethodsProcessor.get(classInfos, clazz);
-        for (ClassInfo classInfo:classInfos) {
+        ClassInfo classInfo = MethodsProcessor.get(clazz, vertx);
+        if (classInfo != null) {
+            classInfos.add(classInfo);
             for (MethodInfo methodInfo:classInfo.getMethodInfoList()) {
                 String p = classInfo.getClassPath()+methodInfo.getMethodPath();
                 p = PathParamConverter.converter(p);
