@@ -5,6 +5,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
@@ -30,6 +31,7 @@ import javax.xml.bind.Marshaller;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -208,11 +210,12 @@ public class SummerRouter {
         return null;
     }
 
-    private Object getContext(RoutingContext routingContext,ArgInfo argInfo){
+    private Object getContext(RoutingContext routingContext,MethodInfo methodInfo,ArgInfo argInfo){
         Class clz = argInfo.getClazz();
         if (clz ==RoutingContext.class){
-
             return routingContext;
+        }else if (clz == Handler.class){
+            return getAsyncHandler(routingContext,methodInfo);
         }else if (clz == HttpServerRequest.class){
             return routingContext.request();
         }else if (clz == HttpServerResponse.class){
@@ -229,17 +232,14 @@ public class SummerRouter {
         Object[] objects = new Object[methodInfo.getArgInfoList().size()];
         int i =0;
         for (ArgInfo argInfo:methodInfo.getArgInfoList()){
-
             if (argInfo.isContext()){
-                objects[i] = getContext(routingContext,argInfo);
+                objects[i] = getContext(routingContext,methodInfo,argInfo);
             }else if (argInfo.isQueryParam()){
                 objects[i] = getQueryParamArg(routingContext,argInfo);
             }else if (argInfo.isFormParam()){
                 objects[i] = getFromParamArg(routingContext,argInfo);
             }else if (argInfo.isPathParam()){
                 objects[i] = getPathParamArg(routingContext,argInfo);
-            }else if (argInfo.isAsyncHandler()){
-                objects[i] = getAsyncHandler(routingContext, methodInfo, argInfo.getAsyncStatus());
             }else{
                 objects[i] = null;
             }
@@ -249,13 +249,10 @@ public class SummerRouter {
         return objects;
 
     }
-    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo, int httpStatus){
+    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo){
         return (asyncResult -> {
             try {
                 if (asyncResult.succeeded()) {
-                    if (httpStatus > 0) {
-                        routingContext.response().setStatusCode(httpStatus);
-                    }
                     Object result = asyncResult.result();
                     if (result!=null&&result.getClass() != Void.class){
                         this.handlerResponseResult(routingContext, methodInfo, result);
@@ -322,7 +319,7 @@ public class SummerRouter {
         }
         Object[] args = getArgs(routingContext,methodInfo);
         routingContext.response().putHeader("Content-Type",methodInfo.getProducesType())
-                .setStatusCode(HTTP_OK);
+                .setStatusCode(methodInfo.getHttpStatus() > 0 ? methodInfo.getHttpStatus() : HTTP_OK);
 
         try {
             Object result = methodInfo.getMethod().invoke(classInfo.getClazzObj(),args);
@@ -345,6 +342,12 @@ public class SummerRouter {
         if (!routingContext.response().ended()){
             if (result instanceof String) {
                 routingContext.response().end((String) result);
+            }else if(methodInfo.getProducesType().indexOf(MediaType.APPLICATION_JSON)>=0){
+                if (result instanceof List) {
+                    routingContext.response().end(new JsonArray((List) result).encodePrettily());
+                } else {
+                    routingContext.response().end(JsonObject.mapFrom(result).encodePrettily());
+                }
             }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
                     methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN)>=0){
                 routingContext.response().end(result.toString());
@@ -353,7 +356,12 @@ public class SummerRouter {
                 routingContext.response().end(convert2XML(result));
             }else{
                 routingContext.response()
-                        .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8").end(JsonObject.mapFrom(result).encodePrettily());
+                        .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8");
+                if (result instanceof List) {
+                    routingContext.response().end(new JsonArray((List) result).encodePrettily());
+                } else {
+                    routingContext.response().end(JsonObject.mapFrom(result).encodePrettily());
+                }
             }
         }
     }
@@ -361,11 +369,8 @@ public class SummerRouter {
     private Handler<RoutingContext> getHandler(ClassInfo classInfo, MethodInfo methodInfo){
 
         return (routingContext -> {
-
             try {
-
                 handlers(classInfo,methodInfo,routingContext);
-
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
                 routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")

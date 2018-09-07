@@ -26,6 +26,7 @@ public class MethodInfo {
     private Interceptor[] befores;
 
     private Interceptor[] afters;
+    private int httpStatus;
 
     public Interceptor[] getAfters() {
         return afters;
@@ -89,5 +90,13 @@ public class MethodInfo {
 
     public void addArgInfo(ArgInfo argInfo) {
        argInfoList.add(argInfo);
+    }
+
+    public int getHttpStatus() {
+        return httpStatus;
+    }
+
+    public void setHttpStatus(int httpStatus) {
+        this.httpStatus = httpStatus;
     }
 }

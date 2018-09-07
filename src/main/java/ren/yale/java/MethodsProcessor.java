@@ -3,7 +3,7 @@ package ren.yale.java;
 import io.vertx.core.Vertx;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import ren.yale.java.annotation.AsyncHandler;
+import ren.yale.java.annotation.HttpStatus;
 import ren.yale.java.annotation.Blocking;
 import ren.yale.java.aop.After;
 import ren.yale.java.aop.Before;
@@ -152,7 +152,6 @@ class MethodsProcessor {
                 methodInfo.setBlocking(true);
             }
 
-
             Path pathMthod = (Path) method.getAnnotation(Path.class);
             Produces produces = (Produces) method.getAnnotation(Produces.class);
 
@@ -161,6 +160,11 @@ class MethodsProcessor {
 
             methodInfo.setHttpMethod(getHttpMethod(method));
             methodInfo.setMethod(method);
+
+            HttpStatus httpStatus = (HttpStatus) method.getAnnotation(HttpStatus.class);
+            if (httpStatus != null){
+                methodInfo.setHttpStatus(httpStatus.value());
+            }
 
             Parameter[] parameters = method.getParameters();
             Class<?>[] parameterTypes = method.getParameterTypes();
@@ -190,9 +194,6 @@ class MethodsProcessor {
                     }else if (ant instanceof FormParam){
                         argInfo.setFormParam(true);
                         argInfo.setFormParam(((FormParam) ant).value());
-                    }else if (ant instanceof AsyncHandler){
-                        argInfo.setAsyncHandler(true);
-                        argInfo.setAsyncStatus(((AsyncHandler) ant).value());
                     }
                 }
 
