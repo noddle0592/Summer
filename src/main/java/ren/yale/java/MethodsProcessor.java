@@ -3,6 +3,7 @@ package ren.yale.java;
 import io.vertx.core.Vertx;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import ren.yale.java.annotation.AsyncHandler;
 import ren.yale.java.annotation.Blocking;
 import ren.yale.java.aop.After;
 import ren.yale.java.aop.Before;
@@ -178,8 +179,7 @@ class MethodsProcessor {
                 for (Annotation ant:an) {
                     if (ant instanceof Context){
                         argInfo.setContext(true);
-                    }else
-                    if (ant instanceof DefaultValue){
+                    }else if (ant instanceof DefaultValue){
                         argInfo.setDefaultValue(((DefaultValue) ant).value());
                     }else if (ant instanceof PathParam){
                         argInfo.setPathParam(true);
@@ -190,8 +190,9 @@ class MethodsProcessor {
                     }else if (ant instanceof FormParam){
                         argInfo.setFormParam(true);
                         argInfo.setFormParam(((FormParam) ant).value());
+                    }else if (ant instanceof AsyncHandler){
+                        argInfo.setAsyncHandler(true);
                     }
-
                 }
 
                 i++;

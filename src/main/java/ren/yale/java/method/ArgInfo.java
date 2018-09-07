@@ -26,7 +26,7 @@ public class ArgInfo {
     private boolean isFormParam;
     private String formParam;
 
-
+    private boolean isAsyncHandler;
 
     public Class getClazz() {
         return clazz;
@@ -118,5 +118,11 @@ public class ArgInfo {
         this.parameter = parameter;
     }
 
+    public boolean isAsyncHandler() {
+        return isAsyncHandler;
+    }
 
+    public void setAsyncHandler(boolean asyncHandler) {
+        isAsyncHandler = asyncHandler;
+    }
 }

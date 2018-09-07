@@ -1,5 +1,6 @@
 package ren.yale.java;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
@@ -27,10 +28,12 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import java.io.ByteArrayOutputStream;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_OK;
 
 /**
  * Yale
@@ -221,7 +224,7 @@ public class SummerRouter {
         }
         return null;
     }
-    private Object[] getArgs(RoutingContext routingContext,ClassInfo classInfo,MethodInfo methodInfo){
+    private Object[] getArgs(RoutingContext routingContext,MethodInfo methodInfo){
 
         Object[] objects = new Object[methodInfo.getArgInfoList().size()];
         int i =0;
@@ -235,6 +238,8 @@ public class SummerRouter {
                 objects[i] = getFromParamArg(routingContext,argInfo);
             }else if (argInfo.isPathParam()){
                 objects[i] = getPathParamArg(routingContext,argInfo);
+            }else if (argInfo.isAsyncHandler()){
+                objects[i] = getAsyncHandler(routingContext, methodInfo);
             }else{
                 objects[i] = null;
             }
@@ -244,7 +249,26 @@ public class SummerRouter {
         return objects;
 
     }
-
+    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo){
+        return (asyncResult -> {
+            try {
+                if (asyncResult.succeeded()) {
+                    Object result = asyncResult.result();
+                    if (result!=null&&result.getClass() != Void.class){
+                        this.handlerResponseResult(routingContext, methodInfo, result);
+                    }else{
+                        routingContext.response().setStatusCode(HTTP_NOT_FOUND).end();
+                    }
+                } else {
+                    routingContext.fail(asyncResult.cause());
+                }
+            } catch (Exception e) {
+                LOGGER.error(e.getMessage());
+                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+                        .end(e.toString());
+            }
+        });
+    }
     private String convert2XML(Object object) throws JAXBException {
         JAXBContext context = JAXBContext.newInstance(object.getClass());
         Marshaller marshaller = context.createMarshaller();
@@ -293,9 +317,9 @@ public class SummerRouter {
         if (handleBefores(routingContext,classInfo,methodInfo)){
             return;
         }
-        Object[] args = getArgs(routingContext,classInfo,methodInfo);
+        Object[] args = getArgs(routingContext,methodInfo);
         routingContext.response().putHeader("Content-Type",methodInfo.getProducesType())
-                .setStatusCode(200);
+                .setStatusCode(HTTP_OK);
 
         try {
             Object result = methodInfo.getMethod().invoke(classInfo.getClazzObj(),args);
@@ -305,27 +329,30 @@ public class SummerRouter {
                     if( handleAfters(routingContext,classInfo,methodInfo,result)){
                         return;
                     }
-                    if (!routingContext.response().ended()){
-                        if (result instanceof  String){
-                            routingContext.response().end((String) result);
-                        }else{
-                            if (methodInfo.getProducesType().indexOf(MediaType.TEXT_XML)>=0||
-                                    methodInfo.getProducesType().indexOf(MediaType.APPLICATION_XML)>=0 ){
-                                routingContext.response().end(convert2XML(result));
-                            }else{
-                                routingContext.response()
-                                        .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8").end(JsonObject.mapFrom(result).encodePrettily());
-                            }
-                        }
-                    }
+                    this.handlerResponseResult(routingContext, methodInfo, result);
                 }
             }
         }catch (Exception e){
             LOGGER.error(e.toString());
-            routingContext.response().setStatusCode(500).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+            routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
                     .end(e.toString());
         }
     }
+    private void handlerResponseResult(RoutingContext routingContext, MethodInfo methodInfo, Object result) throws JAXBException {
+        if (!routingContext.response().ended()){
+            if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
+                    methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN)>=0){
+                routingContext.response().end(result.toString());
+            }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_XML)>=0||
+                    methodInfo.getProducesType().indexOf(MediaType.APPLICATION_XML)>=0 ){
+                routingContext.response().end(convert2XML(result));
+            }else{
+                routingContext.response()
+                        .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8").end(JsonObject.mapFrom(result).encodePrettily());
+            }
+        }
+    }
+
     private Handler<RoutingContext> getHandler(ClassInfo classInfo, MethodInfo methodInfo){
 
         return (routingContext -> {
@@ -336,7 +363,7 @@ public class SummerRouter {
 
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
-                routingContext.response().setStatusCode(500).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
                         .end(e.toString());
             }
         });
