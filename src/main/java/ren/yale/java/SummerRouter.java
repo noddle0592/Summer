@@ -239,7 +239,7 @@ public class SummerRouter {
             }else if (argInfo.isPathParam()){
                 objects[i] = getPathParamArg(routingContext,argInfo);
             }else if (argInfo.isAsyncHandler()){
-                objects[i] = getAsyncHandler(routingContext, methodInfo);
+                objects[i] = getAsyncHandler(routingContext, methodInfo, argInfo.getAsyncStatus());
             }else{
                 objects[i] = null;
             }
@@ -249,10 +249,13 @@ public class SummerRouter {
         return objects;
 
     }
-    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo){
+    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo, int httpStatus){
         return (asyncResult -> {
             try {
                 if (asyncResult.succeeded()) {
+                    if (httpStatus > 0) {
+                        routingContext.response().setStatusCode(httpStatus);
+                    }
                     Object result = asyncResult.result();
                     if (result!=null&&result.getClass() != Void.class){
                         this.handlerResponseResult(routingContext, methodInfo, result);
@@ -340,7 +343,9 @@ public class SummerRouter {
     }
     private void handlerResponseResult(RoutingContext routingContext, MethodInfo methodInfo, Object result) throws JAXBException {
         if (!routingContext.response().ended()){
-            if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
+            if (result instanceof String) {
+                routingContext.response().end((String) result);
+            }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
                     methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN)>=0){
                 routingContext.response().end(result.toString());
             }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_XML)>=0||

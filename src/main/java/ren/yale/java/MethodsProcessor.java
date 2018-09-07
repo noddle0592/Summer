@@ -192,6 +192,7 @@ class MethodsProcessor {
                         argInfo.setFormParam(((FormParam) ant).value());
                     }else if (ant instanceof AsyncHandler){
                         argInfo.setAsyncHandler(true);
+                        argInfo.setAsyncStatus(((AsyncHandler) ant).value());
                     }
                 }
 
