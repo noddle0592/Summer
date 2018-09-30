@@ -1,10 +1,10 @@
 package ren.yale.java;
 
 import io.vertx.core.Vertx;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import ren.yale.java.annotation.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ren.yale.java.annotation.Blocking;
+import ren.yale.java.annotation.HttpStatus;
 import ren.yale.java.aop.After;
 import ren.yale.java.aop.Before;
 import ren.yale.java.interceptor.Interceptor;
@@ -27,7 +27,7 @@ import java.util.List;
  * create at:  2018-01-31 17:25
  **/
 class MethodsProcessor {
-    private final static Logger LOGGER = LogManager.getLogger(MethodsProcessor.class.getName());
+    private final static Logger LOGGER = LoggerFactory.getLogger(MethodsProcessor.class.getName());
 
     private MethodsProcessor() {
     }
@@ -103,9 +103,7 @@ class MethodsProcessor {
         }
         return null;
     }
-    public static ClassInfo get(Class clazz, Vertx vertx) {
-
-
+    public static ClassInfo get(Object handler, Class clazz, Vertx vertx) {
         Path path = (Path) clazz.getAnnotation(Path.class);
 
         if (path==null||path.value()==null){
@@ -114,7 +112,7 @@ class MethodsProcessor {
 
         ClassInfo classInfo = new ClassInfo();
         classInfo.setClassPath(path.value());
-        classInfo.setClazzObj(newClass(clazz, vertx));
+        classInfo.setClazzObj(handler != null ? handler : newClass(clazz, vertx));
         classInfo.setClazz(clazz);
 
         Interceptor[] interceptorsClazz =

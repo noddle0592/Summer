@@ -1,15 +1,15 @@
 package ren.yale.java.tools;
 
 import org.apache.commons.cli.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Yale
  * create at: 2018-02-06 17:41
  **/
 public class CommandLineUtils {
-    private final static Logger LOGGER = LogManager.getLogger(CommandLineUtils.class.getName());
+    private final static Logger LOGGER = LoggerFactory.getLogger(CommandLineUtils.class.getName());
     private String[]args;
     private  CommandLineParser parser =null;
     private CommandLine cmd = null;

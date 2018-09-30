@@ -15,13 +15,14 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ren.yale.java.interceptor.Interceptor;
 import ren.yale.java.method.ArgInfo;
 import ren.yale.java.method.ClassInfo;
 import ren.yale.java.method.MethodInfo;
-import ren.yale.java.tools.*;
+import ren.yale.java.tools.PathParamConverter;
+import ren.yale.java.tools.StringUtils;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -31,11 +32,9 @@ import javax.xml.bind.Marshaller;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_OK;
+
+import static java.net.HttpURLConnection.*;
 
 /**
  * Yale
@@ -43,7 +42,7 @@ import static java.net.HttpURLConnection.HTTP_OK;
  * create at:  2018-02-01 14:08
  **/
 public class SummerRouter {
-    private final static Logger LOGGER = LogManager.getLogger(SummerRouter.class.getName());
+    private final static Logger LOGGER = LoggerFactory.getLogger(SummerRouter.class.getName());
 
     private List<ClassInfo> classInfos;
     private Router router;
@@ -86,14 +85,22 @@ public class SummerRouter {
         return false;
     }
 
+    public void registerResource(Object handler) {
+        if (handler != null) {
+            this.registerResource(handler, handler.getClass());
+        }
+    }
 
+    public void registerResource(Class clazz) {
+        this.registerResource(null, clazz);
+    }
 
-    public void registerResource(Class clazz){
+    private void registerResource(Object handler, Class clazz){
 
         if (isRegister(clazz)){
             return;
         }
-        ClassInfo classInfo = MethodsProcessor.get(clazz, vertx);
+        ClassInfo classInfo = MethodsProcessor.get(handler, clazz, vertx);
         if (classInfo != null) {
             classInfos.add(classInfo);
             for (MethodInfo methodInfo:classInfo.getMethodInfoList()) {
@@ -264,6 +271,7 @@ public class SummerRouter {
                 }
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
+                e.printStackTrace();
                 routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
                         .end(e.toString());
             }
@@ -334,6 +342,7 @@ public class SummerRouter {
             }
         }catch (Exception e){
             LOGGER.error(e.toString());
+            e.printStackTrace();
             routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
                     .end(e.toString());
         }

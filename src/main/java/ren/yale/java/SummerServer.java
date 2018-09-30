@@ -1,9 +1,12 @@
 package ren.yale.java;
 
-import io.vertx.core.*;
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.ext.web.Router;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ren.yale.java.event.EventMessage;
 import ren.yale.java.event.EventMessageCodec;
 
@@ -15,7 +18,7 @@ import ren.yale.java.event.EventMessageCodec;
 public class SummerServer  {
 
 
-    private final static Logger LOGGER = LogManager.getLogger(SummerServer.class.getName());
+    private final static Logger LOGGER = LoggerFactory.getLogger(SummerServer.class.getName());
 
     private static Vertx vertx;
     private static Router router;
