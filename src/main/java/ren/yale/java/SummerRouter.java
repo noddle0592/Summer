@@ -145,20 +145,23 @@ public class SummerRouter {
 
         String typeName = type.getTypeName();
 
-        if (type == String.class){
+        if (type == String.class) {
             return v;
         }
-        if (type == Integer.class||typeName.equals("int")){
+        if (type == Integer.class || typeName.equals("int")) {
             return Integer.parseInt(v);
         }
-        if (type == Long.class||typeName.equals("long")){
+        if (type == Long.class || typeName.equals("long")) {
             return Long.parseLong(v);
         }
-        if (type == Float.class||typeName.equals("float")){
+        if (type == Float.class || typeName.equals("float")) {
             return Float.parseFloat(v);
         }
-        if (type == Double.class||typeName.equals("double")){
+        if (type == Double.class || typeName.equals("double")) {
             return Double.parseDouble(v);
+        }
+        if (type == Boolean.class || typeName.equals("boolean")) {
+            return Boolean.getBoolean(v);
         }
 
         return null;
