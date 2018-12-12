@@ -161,7 +161,7 @@ public class SummerRouter {
             return Double.parseDouble(v);
         }
         if (type == Boolean.class || typeName.equals("boolean")) {
-            return Boolean.getBoolean(v);
+            return Boolean.valueOf(v);
         }
 
         return null;
