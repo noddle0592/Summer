@@ -11,6 +11,7 @@ import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.AuthHandler;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
@@ -76,9 +77,8 @@ public class SummerRouter {
         router.route().handler(handler);
     }
     private boolean isRegister(Class clazz){
-
-        for (ClassInfo classInfo:classInfos) {
-            if (classInfo.getClazz() == clazz){
+        for (ClassInfo classInfo : classInfos) {
+            if (classInfo.getClazz() == clazz) {
                 return true;
             }
         }
@@ -86,50 +86,59 @@ public class SummerRouter {
     }
 
     public void registerResource(Object handler) {
+        this.registerResource(handler, null);
+    }
+
+    public void registerResource(Object handler, AuthHandler authHandler) {
         if (handler != null) {
-            this.registerResource(handler, handler.getClass());
+            this.registerResource(handler, handler.getClass(), authHandler);
         }
     }
 
     public void registerResource(Class clazz) {
-        this.registerResource(null, clazz);
+        this.registerResource(null, clazz, null);
     }
 
-    private void registerResource(Object handler, Class clazz){
+    public void registerResource(Class clazz, AuthHandler authHandler) {
+        this.registerResource(null, clazz, authHandler);
+    }
 
+    private void registerResource(Object handler, Class clazz, AuthHandler authHandler){
         if (isRegister(clazz)){
             return;
         }
         ClassInfo classInfo = MethodsProcessor.get(handler, clazz, vertx);
         if (classInfo != null) {
             classInfos.add(classInfo);
+            if (authHandler != null) {
+                // 需要控制权限
+                router.route(classInfo.getClassPath() + "/*").handler(authHandler);
+            }
             for (MethodInfo methodInfo:classInfo.getMethodInfoList()) {
-                String p = classInfo.getClassPath()+methodInfo.getMethodPath();
+                String p = classInfo.getClassPath() + methodInfo.getMethodPath();
                 p = PathParamConverter.converter(p);
-                p =addContextPath(p);
-                Route route=null;
-                if (methodInfo.getHttpMethod()== null){
+                p = addContextPath(p);
+                Route route = null;
+                if (methodInfo.getHttpMethod() == null) {
                     route = router.route(p);
-                }else
-                if (methodInfo.getHttpMethod()== GET.class){
+                } else if (methodInfo.getHttpMethod() == GET.class) {
                     route = router.get(p);
-                }else if (methodInfo.getHttpMethod()== POST.class){
+                } else if (methodInfo.getHttpMethod() == POST.class) {
                     route = router.post(p);
-                }else if (methodInfo.getHttpMethod()== PUT.class){
+                } else if (methodInfo.getHttpMethod() == PUT.class) {
                     route = router.put(p);
-                }else if (methodInfo.getHttpMethod()== DELETE.class){
+                } else if (methodInfo.getHttpMethod() == DELETE.class) {
                     route = router.delete(p);
-                }else if (methodInfo.getHttpMethod()== OPTIONS.class){
+                } else if (methodInfo.getHttpMethod() == OPTIONS.class) {
                     route = router.options(p);
-                }else if (methodInfo.getHttpMethod()== HEAD.class){
+                } else if (methodInfo.getHttpMethod() == HEAD.class) {
                     route = router.head(p);
                 }
-                if (methodInfo.isBlocking()){
-                    route.blockingHandler(getHandler(classInfo,methodInfo));
-                }else{
-                    route.handler(getHandler(classInfo,methodInfo));
+                if (methodInfo.isBlocking()) {
+                    route.blockingHandler(getHandler(classInfo, methodInfo));
+                } else {
+                    route.handler(getHandler(classInfo, methodInfo));
                 }
-
             }
         }
 
