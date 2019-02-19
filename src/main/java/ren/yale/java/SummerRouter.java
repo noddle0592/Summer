@@ -54,7 +54,7 @@ public class SummerRouter {
         this.vertx =vertx;
         this.classInfos = new ArrayList<>();
 
-        this.init();
+//        this.init();
     }
 
     public String getContextPath() {
