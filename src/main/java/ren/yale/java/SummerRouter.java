@@ -150,30 +150,25 @@ public class SummerRouter {
     }
 
     private Object covertType(Class type,String v) throws Exception{
-
-
         String typeName = type.getTypeName();
-
+        Object value = null;
         if (type == String.class) {
-            return v;
+            value = v;
+        } else if (type == Integer.class || typeName.equals("int")) {
+            value = Integer.parseInt(v);
+        } else if (type == Long.class || typeName.equals("long")) {
+            value = Long.parseLong(v);
+        } else if (type == Float.class || typeName.equals("float")) {
+            value = Float.parseFloat(v);
+        } else if (type == Double.class || typeName.equals("double")) {
+            value = Double.parseDouble(v);
+        } else if (type == Boolean.class || typeName.equals("boolean")) {
+            value = Boolean.valueOf(v);
+        } else if (type == List.class) {
+            String[] array = v.split(",");
+            value = Arrays.asList(array);
         }
-        if (type == Integer.class || typeName.equals("int")) {
-            return Integer.parseInt(v);
-        }
-        if (type == Long.class || typeName.equals("long")) {
-            return Long.parseLong(v);
-        }
-        if (type == Float.class || typeName.equals("float")) {
-            return Float.parseFloat(v);
-        }
-        if (type == Double.class || typeName.equals("double")) {
-            return Double.parseDouble(v);
-        }
-        if (type == Boolean.class || typeName.equals("boolean")) {
-            return Boolean.valueOf(v);
-        }
-
-        return null;
+        return value;
 
     }
     private Object getPathParamArg(RoutingContext routingContext, ArgInfo argInfo){
