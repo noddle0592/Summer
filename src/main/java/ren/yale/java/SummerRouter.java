@@ -27,6 +27,7 @@ import ren.yale.java.tools.StringUtils;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import javax.wx.rs.ALL;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
@@ -115,29 +116,32 @@ public class SummerRouter {
                 router.route(classInfo.getClassPath() + "/*").handler(authHandler);
             }
             for (MethodInfo methodInfo:classInfo.getMethodInfoList()) {
-                String p = classInfo.getClassPath() + methodInfo.getMethodPath();
-                p = PathParamConverter.converter(p);
-                p = addContextPath(p);
-                Route route = null;
-                if (methodInfo.getHttpMethod() == null) {
-                    route = router.route(p);
-                } else if (methodInfo.getHttpMethod() == GET.class) {
-                    route = router.get(p);
-                } else if (methodInfo.getHttpMethod() == POST.class) {
-                    route = router.post(p);
-                } else if (methodInfo.getHttpMethod() == PUT.class) {
-                    route = router.put(p);
-                } else if (methodInfo.getHttpMethod() == DELETE.class) {
-                    route = router.delete(p);
-                } else if (methodInfo.getHttpMethod() == OPTIONS.class) {
-                    route = router.options(p);
-                } else if (methodInfo.getHttpMethod() == HEAD.class) {
-                    route = router.head(p);
-                }
-                if (methodInfo.isBlocking()) {
-                    route.blockingHandler(getHandler(classInfo, methodInfo));
-                } else {
-                    route.handler(getHandler(classInfo, methodInfo));
+                // 没有标注httpMethod的方法一律不处理，需要所有方法都能访问，则标注为@ALL
+                if (methodInfo.getHttpMethod() != null) {
+                    String p = classInfo.getClassPath() + methodInfo.getMethodPath();
+                    p = PathParamConverter.converter(p);
+                    p = addContextPath(p);
+                    Route route = null;
+                    if (methodInfo.getHttpMethod() == GET.class) {
+                        route = router.get(p);
+                    } else if (methodInfo.getHttpMethod() == POST.class) {
+                        route = router.post(p);
+                    } else if (methodInfo.getHttpMethod() == PUT.class) {
+                        route = router.put(p);
+                    } else if (methodInfo.getHttpMethod() == DELETE.class) {
+                        route = router.delete(p);
+                    } else if (methodInfo.getHttpMethod() == OPTIONS.class) {
+                        route = router.options(p);
+                    } else if (methodInfo.getHttpMethod() == HEAD.class) {
+                        route = router.head(p);
+                    } else if (methodInfo.getHttpMethod() == ALL.class) {
+                        route = router.route(p);
+                    }
+                    if (methodInfo.isBlocking()) {
+                        route.blockingHandler(getHandler(classInfo, methodInfo));
+                    } else {
+                        route.handler(getHandler(classInfo, methodInfo));
+                    }
                 }
             }
         }
@@ -359,11 +363,7 @@ public class SummerRouter {
             if (result instanceof String) {
                 routingContext.response().end((String) result);
             }else if(methodInfo.getProducesType().indexOf(MediaType.APPLICATION_JSON)>=0){
-                if (result instanceof List) {
-                    routingContext.response().end(new JsonArray((List) result).encodePrettily());
-                } else {
-                    routingContext.response().end(JsonObject.mapFrom(result).encodePrettily());
-                }
+                this.handlerResponseJson(routingContext, result);
             }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
                     methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN)>=0){
                 routingContext.response().end(result.toString());
@@ -373,12 +373,16 @@ public class SummerRouter {
             }else{
                 routingContext.response()
                         .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8");
-                if (result instanceof List) {
-                    routingContext.response().end(new JsonArray((List) result).encodePrettily());
-                } else {
-                    routingContext.response().end(JsonObject.mapFrom(result).encodePrettily());
-                }
+                this.handlerResponseJson(routingContext, result);
             }
+        }
+    }
+
+    private void handlerResponseJson(RoutingContext routingContext, Object result) {
+        if (result instanceof List) {
+            routingContext.response().end(new JsonArray((List) result).encodePrettily());
+        } else {
+            routingContext.response().end(JsonObject.mapFrom(result).encodePrettily());
         }
     }
 

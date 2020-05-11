@@ -14,6 +14,7 @@ import ren.yale.java.method.MethodInfo;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
+import javax.wx.rs.ALL;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -225,7 +226,9 @@ class MethodsProcessor {
                 PUT.class,
                 DELETE.class,
                 OPTIONS.class,
-                HEAD.class);
+                HEAD.class,
+//                PATCH.class, PATCH相当于没标注，因为Vertx不支持
+                ALL.class);
 
         for (Class<? extends Annotation> item: search) {
             if (method.getAnnotation(item) != null) {
