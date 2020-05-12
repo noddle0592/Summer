@@ -40,21 +40,27 @@ import static java.net.HttpURLConnection.*;
 
 /**
  * Yale
- *
+ * <p>
  * create at:  2018-02-01 14:08
  **/
 public class SummerRouter {
     private final static Logger LOGGER = LoggerFactory.getLogger(SummerRouter.class.getName());
 
     private List<ClassInfo> classInfos;
-    private Router router;
-    private Vertx vertx;
-    private String contextPath="";
-    public SummerRouter(Router router,Vertx vertx){
-        this.router = router;
-        this.vertx =vertx;
-        this.classInfos = new ArrayList<>();
+    private final Router router;
+    private final Vertx vertx;
+    private final MethodsProcessor methodsProcessor;
+    private String contextPath = "";
 
+    public SummerRouter(Router router, Vertx vertx) {
+        this(router, vertx, new DefaultMethodsProcessor());
+    }
+
+    public SummerRouter(Router router, Vertx vertx, MethodsProcessor methodsProcessor) {
+        this.router = router;
+        this.vertx = vertx;
+        this.methodsProcessor = methodsProcessor;
+        this.classInfos = new ArrayList<>();
 //        this.init();
     }
 
@@ -63,21 +69,24 @@ public class SummerRouter {
     }
 
     public void setContextPath(String contextPath) {
-        if (!StringUtils.isEmpty(contextPath)){
+        if (!StringUtils.isEmpty(contextPath)) {
             this.contextPath = contextPath;
         }
     }
+
     public Router getRouter() {
         return router;
     }
-    private void init(){
+
+    private void init() {
         router.route().handler(BodyHandler.create());
         router.route().handler(CookieHandler.create());
         SessionHandler handler = SessionHandler.create(LocalSessionStore.create(vertx));
         handler.setNagHttps(true);
         router.route().handler(handler);
     }
-    private boolean isRegister(Class clazz){
+
+    private boolean isRegister(Class clazz) {
         for (ClassInfo classInfo : classInfos) {
             if (classInfo.getClazz() == clazz) {
                 return true;
@@ -93,6 +102,9 @@ public class SummerRouter {
     public void registerResource(Object handler, AuthHandler authHandler) {
         if (handler != null) {
             this.registerResource(handler, handler.getClass(), authHandler);
+            if (handler instanceof VertxAware) {
+                ((VertxAware) handler).setVertx(vertx);
+            }
         }
     }
 
@@ -104,18 +116,18 @@ public class SummerRouter {
         this.registerResource(null, clazz, authHandler);
     }
 
-    private void registerResource(Object handler, Class clazz, AuthHandler authHandler){
-        if (isRegister(clazz)){
+    private void registerResource(Object handler, Class clazz, AuthHandler authHandler) {
+        if (isRegister(clazz)) {
             return;
         }
-        ClassInfo classInfo = MethodsProcessor.get(handler, clazz, vertx);
+        ClassInfo classInfo = methodsProcessor.get(handler, clazz);
         if (classInfo != null) {
             classInfos.add(classInfo);
             if (authHandler != null) {
                 // 需要控制权限
                 router.route(classInfo.getClassPath() + "/*").handler(authHandler);
             }
-            for (MethodInfo methodInfo:classInfo.getMethodInfoList()) {
+            for (MethodInfo methodInfo : classInfo.getMethodInfoList()) {
                 // 没有标注httpMethod的方法一律不处理，需要所有方法都能访问，则标注为@ALL
                 if (methodInfo.getHttpMethod() != null) {
                     String p = classInfo.getClassPath() + methodInfo.getMethodPath();
@@ -149,11 +161,10 @@ public class SummerRouter {
     }
 
     private String addContextPath(String path) {
-
-        return contextPath+path;
+        return contextPath + path;
     }
 
-    private Object covertType(Class type,String v) throws Exception{
+    private Object covertType(Class type, String v) throws Exception {
         String typeName = type.getTypeName();
         Object value = null;
         if (type == String.class) {
@@ -175,90 +186,94 @@ public class SummerRouter {
         return value;
 
     }
-    private Object getPathParamArg(RoutingContext routingContext, ArgInfo argInfo){
+
+    private Object getPathParamArg(RoutingContext routingContext, ArgInfo argInfo) {
 
         try {
             String path = routingContext.request().getParam(argInfo.getPathParam());
-            if (!StringUtils.isEmpty(path)){
-                return covertType(argInfo.getClazz(),path);
+            if (!StringUtils.isEmpty(path)) {
+                return covertType(argInfo.getClazz(), path);
             }
-            if (!StringUtils.isEmpty(argInfo.getDefaultValue())){
-                return covertType(argInfo.getClazz(),argInfo.getDefaultValue());
+            if (!StringUtils.isEmpty(argInfo.getDefaultValue())) {
+                return covertType(argInfo.getClazz(), argInfo.getDefaultValue());
             }
 
-        }catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
 
         return null;
 
     }
-    private Object getFromParamArg(RoutingContext routingContext,ArgInfo argInfo){
+
+    private Object getFromParamArg(RoutingContext routingContext, ArgInfo argInfo) {
 
         try {
             String q = routingContext.request().getParam(argInfo.getFormParam());
-            if (!StringUtils.isEmpty(q)){
-                return covertType(argInfo.getClazz(),q);
+            if (!StringUtils.isEmpty(q)) {
+                return covertType(argInfo.getClazz(), q);
             }
-            if (!StringUtils.isEmpty(argInfo.getDefaultValue())){
-                return covertType(argInfo.getClazz(),argInfo.getDefaultValue());
+            if (!StringUtils.isEmpty(argInfo.getDefaultValue())) {
+                return covertType(argInfo.getClazz(), argInfo.getDefaultValue());
             }
 
-        }catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
 
         return null;
     }
-    private Object getQueryParamArg(RoutingContext routingContext,ArgInfo argInfo){
+
+    private Object getQueryParamArg(RoutingContext routingContext, ArgInfo argInfo) {
 
         try {
             String q = routingContext.request().getParam(argInfo.getQueryParam());
-            if (!StringUtils.isEmpty(q)){
-                return covertType(argInfo.getClazz(),q);
+            if (!StringUtils.isEmpty(q)) {
+                return covertType(argInfo.getClazz(), q);
             }
-            if (!StringUtils.isEmpty(argInfo.getDefaultValue())){
-                return covertType(argInfo.getClazz(),argInfo.getDefaultValue());
+            if (!StringUtils.isEmpty(argInfo.getDefaultValue())) {
+                return covertType(argInfo.getClazz(), argInfo.getDefaultValue());
             }
 
-        }catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
 
         return null;
     }
 
-    private Object getContext(RoutingContext routingContext,MethodInfo methodInfo,ArgInfo argInfo){
+    private Object getContext(RoutingContext routingContext, MethodInfo methodInfo, ArgInfo argInfo) {
         Class clz = argInfo.getClazz();
-        if (clz ==RoutingContext.class){
+        if (clz == RoutingContext.class) {
             return routingContext;
-        }else if (clz == Handler.class){
-            return getAsyncHandler(routingContext,methodInfo);
-        }else if (clz == HttpServerRequest.class){
+        } else if (clz == Handler.class) {
+            return getAsyncHandler(routingContext, methodInfo);
+        } else if (clz == HttpServerRequest.class) {
             return routingContext.request();
-        }else if (clz == HttpServerResponse.class){
+        } else if (clz == HttpServerResponse.class) {
             return routingContext.response();
-        }else if (clz == Session.class){
+        } else if (clz == Session.class) {
             return routingContext.session();
-        }else if (clz == Vertx.class){
+        } else if (clz == Vertx.class) {
             return vertx;
         }
         return null;
     }
-    private Object[] getArgs(RoutingContext routingContext,MethodInfo methodInfo){
+
+    private Object[] getArgs(RoutingContext routingContext, MethodInfo methodInfo) {
 
         Object[] objects = new Object[methodInfo.getArgInfoList().size()];
-        int i =0;
-        for (ArgInfo argInfo:methodInfo.getArgInfoList()){
-            if (argInfo.isContext()){
-                objects[i] = getContext(routingContext,methodInfo,argInfo);
-            }else if (argInfo.isQueryParam()){
-                objects[i] = getQueryParamArg(routingContext,argInfo);
-            }else if (argInfo.isFormParam()){
-                objects[i] = getFromParamArg(routingContext,argInfo);
-            }else if (argInfo.isPathParam()){
-                objects[i] = getPathParamArg(routingContext,argInfo);
-            }else{
+        int i = 0;
+        for (ArgInfo argInfo : methodInfo.getArgInfoList()) {
+            if (argInfo.isContext()) {
+                objects[i] = getContext(routingContext, methodInfo, argInfo);
+            } else if (argInfo.isQueryParam()) {
+                objects[i] = getQueryParamArg(routingContext, argInfo);
+            } else if (argInfo.isFormParam()) {
+                objects[i] = getFromParamArg(routingContext, argInfo);
+            } else if (argInfo.isPathParam()) {
+                objects[i] = getPathParamArg(routingContext, argInfo);
+            } else {
                 objects[i] = null;
             }
             i++;
@@ -267,14 +282,15 @@ public class SummerRouter {
         return objects;
 
     }
-    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo){
+
+    private Handler<AsyncResult> getAsyncHandler(RoutingContext routingContext, MethodInfo methodInfo) {
         return (asyncResult -> {
             try {
                 if (asyncResult.succeeded()) {
                     Object result = asyncResult.result();
-                    if (result!=null&&result.getClass() != Void.class){
+                    if (result != null && result.getClass() != Void.class) {
                         this.handlerResponseResult(routingContext, methodInfo, result);
-                    }else{
+                    } else {
                         routingContext.response().setStatusCode(HTTP_NOT_FOUND).end();
                     }
                 } else {
@@ -283,11 +299,12 @@ public class SummerRouter {
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
                 e.printStackTrace();
-                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN + ";charset=utf-8")
                         .end(e.toString());
             }
         });
     }
+
     private String convert2XML(Object object) throws JAXBException {
         JAXBContext context = JAXBContext.newInstance(object.getClass());
         Marshaller marshaller = context.createMarshaller();
@@ -299,80 +316,84 @@ public class SummerRouter {
         return new String(baos.toByteArray());
     }
 
-    private boolean handleBefores(RoutingContext routingContext,ClassInfo classInfo, MethodInfo methodInfo){
+    private boolean handleBefores(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo) {
         List<Interceptor> beforeList = new ArrayList<>();
 
-        if (methodInfo.getBefores()!=null){
+        if (methodInfo.getBefores() != null) {
             beforeList.addAll(Arrays.asList(methodInfo.getBefores()));
         }
-        if (classInfo.getBefores()!=null){
+        if (classInfo.getBefores() != null) {
             beforeList.addAll(Arrays.asList(classInfo.getBefores()));
         }
-        for (Interceptor inter:beforeList) {
-            if (inter.handle(routingContext,null)){
+        for (Interceptor inter : beforeList) {
+            if (inter.handle(routingContext, null)) {
                 return true;
             }
         }
         return false;
     }
-    private boolean handleAfters(RoutingContext routingContext,ClassInfo classInfo, MethodInfo methodInfo
-    ,Object obj){
+
+    private boolean handleAfters(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo
+            , Object obj) {
         List<Interceptor> list = new ArrayList<>();
 
-        if (methodInfo.getAfters()!=null){
+        if (methodInfo.getAfters() != null) {
             list.addAll(Arrays.asList(methodInfo.getAfters()));
         }
-        if (classInfo.getAfters()!=null){
+        if (classInfo.getAfters() != null) {
             list.addAll(Arrays.asList(classInfo.getAfters()));
         }
-        for (Interceptor inter:list) {
-            if (inter.handle(routingContext,obj)){
+        for (Interceptor inter : list) {
+            if (inter.handle(routingContext, obj)) {
                 return true;
             }
         }
         return false;
     }
-    private void handlers(ClassInfo classInfo, MethodInfo methodInfo,RoutingContext routingContext){
-        if (handleBefores(routingContext,classInfo,methodInfo)){
+
+    private void handlers(ClassInfo classInfo, MethodInfo methodInfo, RoutingContext routingContext) {
+        if (handleBefores(routingContext, classInfo, methodInfo)) {
+            routingContext.response().setStatusCode(HTTP_UNAUTHORIZED).end();
             return;
         }
-        Object[] args = getArgs(routingContext,methodInfo);
-        routingContext.response().putHeader("Content-Type",methodInfo.getProducesType())
+        Object[] args = getArgs(routingContext, methodInfo);
+        routingContext.response().putHeader("Content-Type", methodInfo.getProducesType())
                 .setStatusCode(methodInfo.getHttpStatus() > 0 ? methodInfo.getHttpStatus() : HTTP_OK);
 
         try {
-            Object result = methodInfo.getMethod().invoke(classInfo.getClazzObj(),args);
-            if (result!=null&&result.getClass() != Void.class){
-                if (!routingContext.response().ended()){
+            Object result = methodInfo.getMethod().invoke(classInfo.getClazzObj(), args);
+            if (result != null && result.getClass() != Void.class) {
+                if (!routingContext.response().ended()) {
 
-                    if( handleAfters(routingContext,classInfo,methodInfo,result)){
+                    if (handleAfters(routingContext, classInfo, methodInfo, result)) {
                         return;
                     }
                     this.handlerResponseResult(routingContext, methodInfo, result);
                 }
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             LOGGER.error(e.toString());
             e.printStackTrace();
-            routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+            routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN + ";charset=utf-8")
                     .end(e.toString());
         }
     }
+
     private void handlerResponseResult(RoutingContext routingContext, MethodInfo methodInfo, Object result) throws JAXBException {
-        if (!routingContext.response().ended()){
+        if (!routingContext.response().ended()) {
             if (result instanceof String) {
                 routingContext.response().end((String) result);
-            }else if(methodInfo.getProducesType().indexOf(MediaType.APPLICATION_JSON)>=0){
+            } else if (methodInfo.getProducesType().indexOf(MediaType.APPLICATION_JSON) >= 0) {
                 this.handlerResponseJson(routingContext, result);
-            }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML)>=0 ||
-                    methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN)>=0){
+            } else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_HTML) >= 0 ||
+                    methodInfo.getProducesType().indexOf(MediaType.TEXT_PLAIN) >= 0) {
                 routingContext.response().end(result.toString());
-            }else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_XML)>=0||
-                    methodInfo.getProducesType().indexOf(MediaType.APPLICATION_XML)>=0 ){
+            } else if (methodInfo.getProducesType().indexOf(MediaType.TEXT_XML) >= 0 ||
+                    methodInfo.getProducesType().indexOf(MediaType.APPLICATION_XML) >= 0) {
                 routingContext.response().end(convert2XML(result));
-            }else{
+            } else {
                 routingContext.response()
-                        .putHeader("Content-Type", MediaType.APPLICATION_JSON+";charset=utf-8");
+                        .putHeader("Content-Type", MediaType.APPLICATION_JSON + ";charset=utf-8");
                 this.handlerResponseJson(routingContext, result);
             }
         }
@@ -386,14 +407,14 @@ public class SummerRouter {
         }
     }
 
-    private Handler<RoutingContext> getHandler(ClassInfo classInfo, MethodInfo methodInfo){
+    private Handler<RoutingContext> getHandler(ClassInfo classInfo, MethodInfo methodInfo) {
 
         return (routingContext -> {
             try {
-                handlers(classInfo,methodInfo,routingContext);
+                handlers(classInfo, methodInfo, routingContext);
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
-                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN+";charset=utf-8")
+                routingContext.response().setStatusCode(HTTP_INTERNAL_ERROR).putHeader("Content-Type", MediaType.TEXT_PLAIN + ";charset=utf-8")
                         .end(e.toString());
             }
         });
