@@ -316,7 +316,7 @@ public class SummerRouter {
         return new String(baos.toByteArray());
     }
 
-    private boolean handleBefores(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo) {
+    private int handleBefores(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo) {
         List<Interceptor> beforeList = new ArrayList<>();
 
         if (methodInfo.getBefores() != null) {
@@ -326,14 +326,15 @@ public class SummerRouter {
             beforeList.addAll(Arrays.asList(classInfo.getBefores()));
         }
         for (Interceptor inter : beforeList) {
-            if (inter.handle(routingContext, null)) {
-                return true;
+            int statusCode = inter.handle(routingContext, null);
+            if (statusCode != HTTP_OK) {
+                return statusCode;
             }
         }
-        return false;
+        return HTTP_OK;
     }
 
-    private boolean handleAfters(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo
+    private int handleAfters(RoutingContext routingContext, ClassInfo classInfo, MethodInfo methodInfo
             , Object obj) {
         List<Interceptor> list = new ArrayList<>();
 
@@ -344,16 +345,18 @@ public class SummerRouter {
             list.addAll(Arrays.asList(classInfo.getAfters()));
         }
         for (Interceptor inter : list) {
-            if (inter.handle(routingContext, obj)) {
-                return true;
+            int statusCode = inter.handle(routingContext, obj);
+            if (statusCode != HTTP_OK) {
+                return statusCode;
             }
         }
-        return false;
+        return HTTP_OK;
     }
 
     private void handlers(ClassInfo classInfo, MethodInfo methodInfo, RoutingContext routingContext) {
-        if (handleBefores(routingContext, classInfo, methodInfo)) {
-            routingContext.response().setStatusCode(HTTP_UNAUTHORIZED).end();
+        int statusCode = handleBefores(routingContext, classInfo, methodInfo);
+        if (handleBefores(routingContext, classInfo, methodInfo) != HTTP_OK) {
+            routingContext.response().setStatusCode(statusCode).end();
             return;
         }
         Object[] args = getArgs(routingContext, methodInfo);
@@ -364,8 +367,9 @@ public class SummerRouter {
             Object result = methodInfo.getMethod().invoke(classInfo.getClazzObj(), args);
             if (result != null && result.getClass() != Void.class) {
                 if (!routingContext.response().ended()) {
-
-                    if (handleAfters(routingContext, classInfo, methodInfo, result)) {
+                    statusCode = handleAfters(routingContext, classInfo, methodInfo, result);
+                    if (statusCode != HTTP_OK) {
+                        routingContext.response().setStatusCode(statusCode).end();
                         return;
                     }
                     this.handlerResponseResult(routingContext, methodInfo, result);
